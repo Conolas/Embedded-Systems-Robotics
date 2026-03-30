@@ -25,14 +25,14 @@ The projects involve:
 - Soccer Bot  
 - Line Follower  
 - Maze Solver  
-- Antweight Bot (ongoing)
+- Antweight Bot
 
 ---
 
 ### 🔹 Embedded Systems
 - ESP32-based systems  
 - Display + control interfaces  
-- Wireless communication (WiFi-based control)  
+- Wireless communication (WiFi/Bluetooth-based control)  
 
 ---
 
@@ -43,7 +43,7 @@ The projects involve:
 - Embedded C / C++
 - Sensors & Actuators
 - PWM & Motor Drivers
-- Communication Protocols (WiFi, SPI, UART)
+- Communication Protocols (WiFi, Bluetooth, SPI, UART)
 
 ---
 
@@ -60,7 +60,7 @@ The projects involve:
 
 Each project folder contains:
 - Source code  
-- Supporting files (if any)  
+- Supporting files
 - Basic documentation  
 
 ---
