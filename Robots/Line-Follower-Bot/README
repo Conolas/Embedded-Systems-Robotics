@@ -1,0 +1,8 @@
+# Line Follower Robot
+
+An autonomous robot that follows a predefined path using sensor-based feedback and real-time control algorithms.
+
+## Highlights
+- Sensor-based path detection
+- Real-time decision making
+- Optimized speed and turning control
