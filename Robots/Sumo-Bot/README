@@ -1,0 +1,8 @@
+# Sumo Bot
+
+A competitive robot designed to detect, push, and outmaneuver opponents within a confined arena.
+
+## Highlights
+- Opponent detection using sensors
+- High torque motor control
+- Strategy-based movement logic
