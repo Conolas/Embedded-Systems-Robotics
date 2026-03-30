@@ -1,0 +1,8 @@
+# Maze Solver Robot
+
+An intelligent robot capable of navigating unknown paths using algorithmic decision-making and sensor feedback.
+
+## Highlights
+- Pathfinding logic implementation
+- Memory-based navigation
+- Autonomous exploration and optimization
