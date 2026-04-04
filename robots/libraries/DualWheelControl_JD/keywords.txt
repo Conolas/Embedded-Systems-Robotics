@@ -1,0 +1,11 @@
+DualWheelControl_JD	KEYWORD1
+adelante	KEYWORD2
+atras	KEYWORD2
+derecha	KEYWORD2
+izquierda	KEYWORD2
+adelanteI	KEYWORD2
+adelanteD	KEYWORD2
+atrasD	KEYWORD2
+atrasI	KEYWORD2
+detenido	KEYWORD2
+sleepS	KEYWORD2

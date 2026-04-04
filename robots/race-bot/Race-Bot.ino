@@ -1,31 +1,39 @@
 #include "BluetoothSerial.h"
 BluetoothSerial SerialBT;
 
+// =============================
 // BTS7960B Motor Driver Pinout
 // =============================
 
 // LEFT SIDE DRIVER
-#define LL_EN 12   // Left Enable 1
-#define LR_EN 13   // Left Enable 2
-#define L_LPWM 27  // Left motor forward PWM
-#define L_RPWM 14  // Left motor reverse PWM
+#define LL_EN 12
+#define LR_EN 13
+#define L_LPWM 27
+#define L_RPWM 14
 
 // RIGHT SIDE DRIVER
-#define RL_EN 25   // Right Enable 1
-#define RR_EN 26   // Right Enable 2
-#define R_LPWM 32  // Right motor forward PWM
-#define R_RPWM 33  // Right motor reverse PWM
+#define RL_EN 25
+#define RR_EN 26
+#define R_LPWM 32
+#define R_RPWM 33
 
 // =============================
+
+// Direction correction (IMPORTANT)
+#define LEFT_MOTOR_DIR  1
+#define RIGHT_MOTOR_DIR -1   // <-- THIS FIXES YOUR ISSUE
+
 String inputString = "";
+
+// Smoothing variables
+float smoothLeft = 0;
+float smoothRight = 0;
 
 // =============================
 void setup() {
   Serial.begin(115200);
   SerialBT.begin("Damselete");
-  Serial.println("Waiting for data...");
 
-  // Set pin modes
   pinMode(LL_EN, OUTPUT);
   pinMode(LR_EN, OUTPUT);
   pinMode(L_LPWM, OUTPUT);
@@ -36,7 +44,6 @@ void setup() {
   pinMode(R_LPWM, OUTPUT);
   pinMode(R_RPWM, OUTPUT);
 
-  // Enable all drivers
   digitalWrite(LL_EN, HIGH);
   digitalWrite(LR_EN, HIGH);
   digitalWrite(RL_EN, HIGH);
@@ -58,9 +65,6 @@ void loop() {
 
 // =============================
 void parseCommand(String data) {
-  Serial.print("Raw Data: ");
-  Serial.println(data);
-
   int forward = 0, backward = 0, left = 0, right = 0;
 
   int fIndex = data.indexOf('F');
@@ -75,24 +79,18 @@ void parseCommand(String data) {
   int rIndex = data.indexOf('R');
   if (rIndex != -1) right = data.substring(rIndex + 1, rIndex + 4).toInt();
 
-  Serial.print("FWD: "); Serial.print(forward);
-  Serial.print(" | BWD: "); Serial.print(backward);
-  Serial.print(" | LEFT: "); Serial.print(left);
-  Serial.print(" | RIGHT: "); Serial.println(right);
-
   driveMotors(forward, backward, left, right);
 }
 
+// =============================
 int expoMap(int input) {
-  float x = input / 255.0;  // normalize (0 to 1)
+  float x = input / 255.0;
 
   float y;
   if (x < 0.7) {
-    // gentle curve
-    y = x * x;  
+    y = x * x;
   } else {
-    // aggressive boost after 70%
-    y = 0.49 + (x - 0.7) * 1.7;  
+    y = 0.49 + (x - 0.7) * 1.7;
   }
 
   return constrain(y * 255, 0, 255);
@@ -100,43 +98,62 @@ int expoMap(int input) {
 
 // =============================
 void driveMotors(int forward, int backward, int left, int right) {
-  int leftMotorSpeed = 0;
-  int rightMotorSpeed = 0;
 
-  int move = left - right;  // Positive = forward, Negative = backward
-  int steer = forward - backward;       // Positive = turn right, Negative = turn left
+  int throttle = forward - backward;
+  int steering = right - left;
 
-  leftMotorSpeed = move - steer;
-  rightMotorSpeed = move + steer;
-  
+  // Reduce steering sensitivity
+  float speedFactor = abs(throttle) / 255.0;
 
+// more steering at low speed, less at high speed
+  float steeringGain = 0.8 - (speedFactor * 0.4);
+
+  steering = steering * steeringGain;
+
+  int leftMotorSpeed  = throttle + steering;
+  int rightMotorSpeed = throttle - steering;
+
+  // 🔥 APPLY DIRECTION FIX
+  leftMotorSpeed  *= LEFT_MOTOR_DIR;
+  rightMotorSpeed *= RIGHT_MOTOR_DIR;
+
+
+  if (forward == 0 && backward == 0 && left == 0 && right == 0) {
+  smoothLeft = 0;
+  smoothRight = 0;
+}
+  // Smooth transitions
+  smoothLeft  += (leftMotorSpeed - smoothLeft) * 0.2;
+  smoothRight += (rightMotorSpeed - smoothRight) * 0.2;
+
+  leftMotorSpeed  = smoothLeft;
+  rightMotorSpeed = smoothRight;
+
+  // Limit range
   leftMotorSpeed = constrain(leftMotorSpeed, -255, 255);
   rightMotorSpeed = constrain(rightMotorSpeed, -255, 255);
 
-  // LEFT MOTOR CONTROL
-  int leftPWM = abs(leftMotorSpeed);
-  leftPWM = expoMap(leftPWM);
-  
+  // =============================
+  // LEFT MOTOR
+  int leftPWM = expoMap(abs(leftMotorSpeed));
+
   if (leftMotorSpeed > 0) {
-    analogWrite(L_LPWM, 0);
-    analogWrite(L_RPWM, leftPWM);
-  } else {
     analogWrite(L_LPWM, leftPWM);
     analogWrite(L_RPWM, 0);
-  }
-  
-  // RIGHT MOTOR CONTROL
-  int rightPWM = abs(rightMotorSpeed);
-  rightPWM = expoMap(rightPWM);
-  
-  if (rightMotorSpeed > 0) {
-    analogWrite(R_LPWM, 0);
-    analogWrite(R_RPWM, rightPWM);
   } else {
-    analogWrite(R_LPWM, rightPWM);
-    analogWrite(R_RPWM, 0);
+    analogWrite(L_LPWM, 0);
+    analogWrite(L_RPWM, leftPWM);
   }
 
-  Serial.print("LeftMotor: "); Serial.print(leftMotorSpeed);
-  Serial.print(" | RightMotor: "); Serial.println(rightMotorSpeed);
+  // =============================
+  // RIGHT MOTOR
+  int rightPWM = expoMap(abs(rightMotorSpeed));
+
+  if (rightMotorSpeed > 0) {
+    analogWrite(R_LPWM, rightPWM);
+    analogWrite(R_RPWM, 0);
+  } else {
+    analogWrite(R_LPWM, 0);
+    analogWrite(R_RPWM, rightPWM);
+  }
 }
