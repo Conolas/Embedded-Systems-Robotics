@@ -19,9 +19,9 @@ BluetoothSerial SerialBT;
 
 // =============================
 
-// Direction correction (IMPORTANT)
+// Direction correction
 #define LEFT_MOTOR_DIR  1
-#define RIGHT_MOTOR_DIR -1   // <-- THIS FIXES YOUR ISSUE
+#define RIGHT_MOTOR_DIR -1
 
 String inputString = "";
 
@@ -102,32 +102,45 @@ void driveMotors(int forward, int backward, int left, int right) {
   int throttle = forward - backward;
   int steering = right - left;
 
-  // Reduce steering sensitivity
+  // 🔥 Kill residual steering instantly
+  if (left == 0 && right == 0) {
+    steering = 0;
+  }
+
+  // 🔥 Dynamic steering control
   float speedFactor = abs(throttle) / 255.0;
-
-// more steering at low speed, less at high speed
   float steeringGain = 0.8 - (speedFactor * 0.4);
-
   steering = steering * steeringGain;
 
   int leftMotorSpeed  = throttle + steering;
   int rightMotorSpeed = throttle - steering;
 
-  // 🔥 APPLY DIRECTION FIX
+  // Direction correction
   leftMotorSpeed  *= LEFT_MOTOR_DIR;
   rightMotorSpeed *= RIGHT_MOTOR_DIR;
 
-
+  // 🔥 Hard stop when joystick released
   if (forward == 0 && backward == 0 && left == 0 && right == 0) {
-  smoothLeft = 0;
-  smoothRight = 0;
-}
-  // Smooth transitions
-  smoothLeft  += (leftMotorSpeed - smoothLeft) * 0.2;
-  smoothRight += (rightMotorSpeed - smoothRight) * 0.2;
+    smoothLeft = 0;
+    smoothRight = 0;
+  }
+
+  // 🔥 Dual-rate smoothing (better feel)
+  float accelRate = 0.2;
+  float decelRate = 0.5;
+
+  smoothLeft  += (leftMotorSpeed - smoothLeft) * (abs(leftMotorSpeed) > abs(smoothLeft) ? accelRate : decelRate);
+  smoothRight += (rightMotorSpeed - smoothRight) * (abs(rightMotorSpeed) > abs(smoothRight) ? accelRate : decelRate);
 
   leftMotorSpeed  = smoothLeft;
   rightMotorSpeed = smoothRight;
+
+  // 🔥 Reduce peak speed ONLY during turning
+  float turnIntensity = abs(steering) / 255.0;
+  float turnScale = 1.0 - (turnIntensity * 0.15);
+
+  leftMotorSpeed  *= turnScale;
+  rightMotorSpeed *= turnScale;
 
   // Limit range
   leftMotorSpeed = constrain(leftMotorSpeed, -255, 255);
@@ -144,7 +157,7 @@ void driveMotors(int forward, int backward, int left, int right) {
     analogWrite(L_LPWM, 0);
     analogWrite(L_RPWM, leftPWM);
   }
-
+  
   // =============================
   // RIGHT MOTOR
   int rightPWM = expoMap(abs(rightMotorSpeed));
