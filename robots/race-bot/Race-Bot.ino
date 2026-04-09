@@ -25,7 +25,7 @@ BluetoothSerial SerialBT;
 
 String inputString = "";
 
-// Smoothing variables
+// Smoothing variables (UNCHANGED)
 float smoothLeft = 0;
 float smoothRight = 0;
 
@@ -100,50 +100,99 @@ int expoMap(int input) {
 void driveMotors(int forward, int backward, int left, int right) {
 
   int throttle = forward - backward;
-  int steering = right - left;
+  int steeringInput = right - left;
 
-  // 🔥 Kill residual steering instantly
+  // Detect curve condition
+  bool isCurve = (throttle != 0 && (left > 0 || right > 0));
+
+  // =============================
+  // 🔥 FIX 1: Instant steering control (NO smoothing lag)
+  int steering = steeringInput;
+
+  // Kill residual steering instantly
   if (left == 0 && right == 0) {
     steering = 0;
   }
 
-  // 🔥 Dynamic steering control
-  float speedFactor = abs(throttle) / 255.0;
-  float steeringGain = 0.8 - (speedFactor * 0.4);
-  steering = steering * steeringGain;
+  // =============================
+  // 🔥 FIX 2: Precision curve control (ONLY during curves)
+  if (isCurve) {
+    float s = steering / 255.0;
 
-  int leftMotorSpeed  = throttle + steering;
-  int rightMotorSpeed = throttle - steering;
+    // cubic expo → very precise at small input, strong at full
+    s = s * s * s;
 
-  // Direction correction
-  leftMotorSpeed  *= LEFT_MOTOR_DIR;
-  rightMotorSpeed *= RIGHT_MOTOR_DIR;
-
-  // 🔥 Hard stop when joystick released
-  if (forward == 0 && backward == 0 && left == 0 && right == 0) {
-    smoothLeft = 0;
-    smoothRight = 0;
+    steering = s * 255;
   }
 
-  // 🔥 Dual-rate smoothing (better feel)
+  // =============================
+  // Original dynamic steering (unchanged feel)
+  float speedFactor = abs(throttle) / 255.0;
+  float steeringGain = 0.8 - (speedFactor * 0.4);
+  steering *= steeringGain;
+
+  // =============================
+  // Motor mixing
+  int leftMotorTarget  = throttle + steering;
+  int rightMotorTarget = throttle - steering;
+
+  // Direction correction
+  leftMotorTarget  *= LEFT_MOTOR_DIR;
+  rightMotorTarget *= RIGHT_MOTOR_DIR;
+
+  // =============================
+  // 🔥 ORIGINAL SMOOTHING (UNCHANGED - only affects throttle behavior feel)
   float accelRate = 0.2;
   float decelRate = 0.5;
 
-  smoothLeft  += (leftMotorSpeed - smoothLeft) * (abs(leftMotorSpeed) > abs(smoothLeft) ? accelRate : decelRate);
-  smoothRight += (rightMotorSpeed - smoothRight) * (abs(rightMotorSpeed) > abs(smoothRight) ? accelRate : decelRate);
+  smoothLeft += (leftMotorTarget - smoothLeft) * 
+               (abs(leftMotorTarget) > abs(smoothLeft) ? accelRate : decelRate);
 
-  leftMotorSpeed  = smoothLeft;
-  rightMotorSpeed = smoothRight;
+  smoothRight += (rightMotorTarget - smoothRight) * 
+                (abs(rightMotorTarget) > abs(smoothRight) ? accelRate : decelRate);
 
-  // 🔥 Reduce peak speed ONLY during turning
-  float turnIntensity = abs(steering) / 255.0;
-  float turnScale = 1.0 - (turnIntensity * 0.15);
+  int leftMotorSpeed  = smoothLeft;
+  int rightMotorSpeed = smoothRight;
 
-  leftMotorSpeed  *= turnScale;
-  rightMotorSpeed *= turnScale;
+  // =============================
+  // 🔥 FIX 3: FORCE straight when steering released (CRITICAL)
+  if (throttle != 0 && left == 0 && right == 0) {
+    leftMotorSpeed  = throttle * LEFT_MOTOR_DIR;
+    rightMotorSpeed = throttle * RIGHT_MOTOR_DIR;
 
+    smoothLeft  = leftMotorSpeed;
+    smoothRight = rightMotorSpeed;
+  }
+
+  if(left == 0 && right == 0)
+  {
+    steering = 0;
+  }
+
+  if(left == 0 && right == 0 && forward == 0 && backward == 0)
+  {
+    smoothLeft = 0;
+    smoothRight = 0;
+
+    leftMotorSpeed = 0;
+    rightMotorSpeed = 0;
+  }
+
+  // =============================
+  // 🔥 Reduce peak ONLY during curves (extra 15–20%)
+  if (isCurve) {
+    float turnIntensity = abs(steering) / 255.0;
+
+    // earlier was 0.30 → now ~0.45 (stronger reduction)
+    float turnScale = 1.0 - (turnIntensity * 0.30);
+
+    leftMotorSpeed  *= turnScale;
+    rightMotorSpeed *= turnScale;
+  }
+
+  // =============================
   // Limit range
-  leftMotorSpeed = constrain(leftMotorSpeed, -255, 255);
+  leftMotorSpeed  = constrain(leftMotorSpeed, -255, 255);
   rightMotorSpeed = constrain(rightMotorSpeed, -255, 255);
 
   // =============================
@@ -157,7 +206,7 @@ void driveMotors(int forward, int backward, int left, int right) {
     analogWrite(L_LPWM, 0);
     analogWrite(L_RPWM, leftPWM);
   }
-  
+
   // =============================
   // RIGHT MOTOR
   int rightPWM = expoMap(abs(rightMotorSpeed));
