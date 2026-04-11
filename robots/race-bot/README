@@ -1,8 +1,240 @@
-# Race Bot
+🏁 Race Bot (ESP32 + BTS7960B)
 
-A high-speed robotics platform designed for competitive racing, focusing on precise motor control, stability, and rapid maneuvering.
+🚀 Overview
 
-## Highlights
-- Optimized speed vs control balance
-- Efficient motor driver integration
-- Real-time responsiveness for track navigation
+This project is a high-performance Bluetooth-controlled race bot built using an ESP32 and dual BTS7960B motor drivers. It is designed for off-road racing competitions where precise control, smooth acceleration, and responsive turning are critical.
+
+The control system has been optimized to achieve:
+
+Smooth acceleration and deceleration
+
+Precise curve control during motion
+
+Instant response to joystick release (no drift)
+
+Stable high-speed performance
+
+
+
+---
+
+⚙️ Hardware Used
+
+ESP32 DevKit V1
+
+2x BTS7960B Motor Drivers
+
+4x 300 RPM 12V Metal Geared Motors
+
+4x Li-ion Batteries (3.7V each, in series)
+
+Custom chassis
+
+
+
+---
+
+🎮 Control System (Key Features)
+
+1. Differential Drive Logic
+
+The bot uses differential steering:
+
+Left motor speed = throttle + steering
+
+Right motor speed = throttle - steering
+
+
+
+---
+
+2. Smooth Acceleration & Braking
+
+Two smoothing constants are used:
+
+accelRate = 0.2 → smooth acceleration
+
+decelRate = 0.5 → faster braking response
+
+
+This prevents jerks and improves stability on rough terrain.
+
+
+---
+
+3. Precision Curve Control
+
+Steering is NOT smoothed
+
+Uses cubic exponential mapping for fine control
+
+
+Result:
+
+Small joystick input → gentle curve
+
+Large input → aggressive turn
+
+
+
+---
+
+4. Instant Straight Correction
+
+When steering joystick is released:
+
+Steering is immediately forced to zero
+
+Bot continues straight without drift
+
+
+
+---
+
+5. Hard Stop Logic
+
+When all joystick inputs are zero:
+
+Motor speeds are instantly set to zero
+
+Eliminates unwanted rolling
+
+
+
+---
+
+6. Dynamic Steering Gain
+
+Steering sensitivity reduces at high speed:
+
+steeringGain = 0.8 - (speedFactor * 0.4)
+
+This prevents instability at high velocity.
+
+
+---
+
+7. Turn Speed Reduction
+
+During curves:
+
+Peak speed is reduced dynamically (~45%)
+
+
+This improves grip and prevents slipping.
+
+
+---
+
+8. Exponential PWM Mapping
+
+Custom expoMap() function ensures:
+
+Smooth low-speed control
+
+Strong high-speed output
+
+
+
+---
+
+🧠 Control Philosophy
+
+Throttle → smooth and stable
+
+Steering → instant and precise
+
+No residual motion
+
+No input lag
+
+
+This mimics professional RC racing control behavior.
+
+
+---
+
+🛠️ Code Structure
+
+parseCommand() → reads Bluetooth input
+
+driveMotors() → main control logic
+
+expoMap() → PWM shaping
+
+
+
+---
+
+📡 Bluetooth Control Format
+
+Commands are received as:
+
+FxxxBxxxLxxxRxxx
+
+Where:
+
+F = Forward
+
+B = Backward
+
+L = Left
+
+R = Right
+
+
+Each value ranges from 000 to 255.
+
+
+---
+
+🏎️ Performance Characteristics
+
+Fast acceleration without jerks
+
+Stable high-speed straight runs
+
+Precise cornering control
+
+Immediate response to user input
+
+
+
+---
+
+⚠️ Notes
+
+Heatsinks on BTS7960B drivers are recommended for high load usage
+
+Ensure proper wiring and power distribution
+
+Off-road conditions may introduce vibrations; secure all components properly
+
+
+
+---
+
+🔮 Future Improvements
+
+PID-based stabilization
+
+IMU integration (MPU6050)
+
+Autonomous racing mode
+
+Custom mobile control app
+
+
+
+---
+
+👨‍💻 Author
+
+Conolas
+
+
+---
+
+⭐ Final Thoughts
+
+This bot focuses on real-time control precision rather than just raw speed. The tuning prioritizes driver control, making it suitable for competitive racing scenarios where handling matters more than peak velocity.
